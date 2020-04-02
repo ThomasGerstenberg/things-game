@@ -1,21 +1,12 @@
-from typing import Dict, List, Optional
+from typing import List, Optional
 from enum import Enum
-from things_game.utils import generate_id
-import secrets
 import random
 from threading import RLock
 
+from things_game.errors import GameStateError, PlayerError, InputError
+from things_game.utils import to_dict, generate_id
 
-class GameStateError(BaseException):
-    pass
-
-
-class PlayerError(BaseException):
-    pass
-
-
-class InputError(BaseException):
-    pass
+rand = random.SystemRandom()
 
 
 class GameState(Enum):
@@ -23,7 +14,7 @@ class GameState(Enum):
     writing_topic = "writing_topic"
     writing_answers = "writing_answers"
     matching = "matching"
-    complete = "complete"
+    round_complete = "round_complete"
     game_over = "game_over"
 
 
@@ -38,6 +29,9 @@ class Player(object):
         self.answer = ""
         self.score = 0
 
+    def to_dict(self):
+        return to_dict(self)
+
 
 class GameInfo(object):
     def __init__(self, name, game_id, score_limit):
@@ -50,11 +44,13 @@ class GameInfo(object):
         self.topic_writer: Optional[Player] = None
         self.guesser: Optional[Player] = None
         self.current_topic = ""
-        self.answers = []
-        self.matches = {}
+        self.unguessed_answers = []
+
+    def to_dict(self):
+        return to_dict(self)
 
 
-class Game(object):
+class ThingsGame(object):
     def __init__(self, name, password_hash="", salt="", game_id="", score_limit=11):
         self.info = GameInfo(name, game_id or generate_id(), score_limit)
         self.password = password_hash
@@ -85,22 +81,68 @@ class Game(object):
         index_next = player_list.index(player) + 1
         return player_list[index_next % len(player_list)]
 
+    def _select_next_topic_writer(self):
+        if not self.info.topic_writer:
+            self.info.topic_writer = rand.choice(self.info.players)
+        else:
+            # Select the next person
+            self.info.topic_writer.is_topic_writer = False
+            self.info.topic_writer = self._get_next_player(self.info.topic_writer)
+
+        self.info.topic_writer.is_topic_writer = True
+
+    def _select_next_guesser(self, guessers_remaining=None):
+        if not guessers_remaining:
+            self.info.guesser = self._get_next_player(self.info.topic_writer)
+        else:
+            self.info.guesser.is_guessing = False
+            self.info.guesser = self._get_next_player(self.info.guesser, guessers_remaining)
+            self.info.guesser.is_guessing = True
+
     def add_player(self, name, is_observer, player_id=""):
         with self.lock:
             if not player_id:
                 player_id = self._generate_player_id()
 
             player = Player(name, player_id, is_observer, not self.info.players)
-            if not self.info.players:
-                self.owner = player
             if is_observer:
                 self.info.observers.append(player)
             else:
                 self.info.players.append(player)
-                self.info.players[player_id] = player
+            return player
 
-    def start_game(self):
+    def remove_player(self, player_id):
         with self.lock:
+            try:
+                player = self._find_player(player_id)
+            except PlayerError:
+                try:
+                    player = self._find_player(player_id, self.info.observers)
+                    self.info.observers.remove(player)
+                    return player
+                except PlayerError:
+                    return None
+            if self.info.state == GameState.writing_topic:
+                if self.info.topic_writer == player:
+                    self._select_next_topic_writer()
+            elif self.info.state == GameState.writing_answers:
+                if player in self.player_answers:
+                    del self.player_answers[player]
+            elif self.info.state == GameState.matching:
+                guessers_remaining = [p for p in self.info.players if p.is_guessing]
+                if player in guessers_remaining:
+                    if len(guessers_remaining) <= 2:
+                        self.info.state = GameState.round_complete
+                    elif player is self.info.guesser:
+                        self._select_next_guesser(guessers_remaining)
+            self.info.players.remove(player)
+            return player
+
+    def start_game(self, player_id):
+        with self.lock:
+            player = self._find_player(player_id)
+            if player is not self.owner:
+                raise PlayerError("Only the game creator can start the game")
             if len(self.info.players) < 3:
                 raise GameStateError("Not enough players have joined the game")
             if self.info.state != GameState.not_started:
@@ -112,22 +154,14 @@ class Game(object):
         with self.lock:
             self.info.state = GameState.writing_topic
             self.player_answers = {}
-            self.info.answers = []
+            self.info.unguessed_answers = []
             self.info.guessers_remaining = []
             self.info.guesser = None
 
             for player in self.info.players:
                 player.answer = ""
                 player.is_guessing = False
-
-            if not self.info.topic_writer:
-                self.info.topic_writer = secrets.choice(self.info.players)
-            else:
-                # Select the next person
-                self.info.topic_writer.is_topic_writer = False
-                self.info.topic_writer = self._get_next_player(self.info.topic_writer)
-
-            self.info.topic_writer.is_topic_writer = True
+            self._select_next_topic_writer()
 
     def set_topic(self, player_id: str, topic: str):
         with self.lock:
@@ -158,10 +192,9 @@ class Game(object):
     def start_matching(self):
         with self.lock:
             self.info.state = GameState.matching
-            self.info.answers = self.player_answers.values()
-            random.shuffle(self.info.answers)
-            guesser = self._get_next_player(self.info.topic_writer)
-            guesser.is_guessing = True
+            self.info.unguessed_answers = self.player_answers.values()
+            rand.shuffle(self.info.unguessed_answers)
+            self._select_next_guesser()
 
     def submit_match(self, player_id, answer, guessed_player_id):
         player = self._find_player(player_id)
@@ -170,7 +203,7 @@ class Game(object):
 
         if not player.is_guessing:
             raise GameStateError("Player is not the current guesser!")
-        if answer not in self.player_answers.values():
+        if answer not in self.info.unguessed_answers:
             raise InputError(f"Answer '{answer}' is not in the current game")
         if player_id == guessed_player_id:
             raise InputError("Cannot guess yourself!")
@@ -181,15 +214,14 @@ class Game(object):
         guessed_player_answer = self.player_answers.get(guessed_player, "")
 
         if answer != guessed_player_answer:
-            self.info.guesser.is_guessing = False
-            self.info.guesser = self._get_next_player(self.info.guesser, guessers_remaining)
-            self.info.guesser.is_guessing = True
-            return False
+            self._select_next_guesser()
+            return "", ""
 
         player.score += 1
+        self.info.unguessed_answers.remove(answer)
         guessed_player.answer = guessed_player_answer
 
         if len(guessers_remaining) == 2:
-            self.info.state = GameState.complete
+            self.info.state = GameState.round_complete
 
-        return True
+        return guessed_player_id, guessed_player_answer
