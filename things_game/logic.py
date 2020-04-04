@@ -4,7 +4,7 @@ import random
 from threading import RLock
 
 from things_game.errors import GameStateError, PlayerError, InputError
-from things_game.utils import to_dict, generate_id
+from things_game.utils import to_dict, generate_id, generate_key
 
 rand = random.SystemRandom()
 
@@ -22,6 +22,7 @@ class Player(object):
     def __init__(self, name, player_id="", is_observer=False, is_owner=False):
         self.name = name
         self.id = player_id or generate_id()
+        self.session_key = generate_key()
         self.is_observer = is_observer
         self.is_owner = is_owner
         self.is_topic_writer = False
@@ -30,7 +31,7 @@ class Player(object):
         self.score = 0
 
     def to_dict(self):
-        return to_dict(self)
+        return to_dict(self, omit="session_key")
 
 
 class GameInfo(object):
