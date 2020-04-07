@@ -45,12 +45,13 @@
     methods: {
       ...mapMutations(["setUsername"]),
       joinGame() {
+        if (!this.username) return;
         this.setUsername(this.username);
         console.log("Joining game: " + this.gameId +
           ", Password: " + this.password +
           ", Username: " + this.username);
         const params = {
-          id: this.gameId.toUpperCase(),
+          game_id: this.gameId.toUpperCase(),
           player_name: this.username,
           color: this.color,
         };

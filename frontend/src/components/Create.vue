@@ -44,6 +44,8 @@
     methods: {
       ...mapMutations(["setUsername"]),
       createGame () {
+        if (!this.username) return;
+
         this.setUsername(this.username);
         console.log("Creating game: " + this.gameName +
           ", Password: " + this.password +
