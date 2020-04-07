@@ -9,7 +9,7 @@
         required>
       </v-text-field>
     </v-row>
-    <v-row>
+    <v-row v-if="false">
       <v-text-field
         prepend-icon="lock"
         v-model="password"
@@ -24,6 +24,8 @@
 </template>
 
 <script>
+  import {mapMutations, mapState} from "vuex";
+
   export default {
     name: "Create",
     props: ["username"],
@@ -33,18 +35,23 @@
         password: '',
         nameRules: [
           v => !!v || "Must enter a name",
-          v => v.length > 5 || "Name must be > 5 characters"
         ],
       }
     },
+    computed: {
+      ...mapState(["color"]),
+    },
     methods: {
+      ...mapMutations(["setUsername"]),
       createGame () {
+        this.setUsername(this.username);
         console.log("Creating game: " + this.gameName +
           ", Password: " + this.password +
           ", Username: " + this.username);
         const params = {
           name: this.gameName,
           player_name: this.username,
+          color: this.color,
         };
         this.$socket.emit("create_game", params);
       }

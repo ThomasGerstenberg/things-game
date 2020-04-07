@@ -1,8 +1,22 @@
 <template>
-  <v-card>
-    <v-card-title>{{player.name}}</v-card-title>
-    <v-card-subtitle>{{player.score}}</v-card-subtitle>
-  </v-card>
+  <v-chip :color="player.color" dark>
+    <div class="mr-1">{{player.name}}</div>
+    <v-tooltip bottom v-if="player.is_topic_writer">
+      <template v-slot:activator="{ on }">
+        <v-icon v-on="on">edit</v-icon>
+      </template>
+      <span>{{player.name}} is the topic writer</span>
+    </v-tooltip>
+    <v-tooltip bottom v-if="player.submitted_answer">
+      <template v-slot:activator="{on}">
+        <v-icon v-on="on">done</v-icon>
+      </template>
+      <span>{{player.name}} submitted their answer</span>
+    </v-tooltip>
+    <v-avatar right :color="player.color" class="darken-1">
+      {{player.score}}
+    </v-avatar>
+  </v-chip>
 </template>
 
 <script>

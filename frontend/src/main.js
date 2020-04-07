@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import VueSocketIO   from 'vue-socket.io';
 import Vuetify from "vuetify";
+import VueResizeText from 'vue-resize-text';
 import io from "socket.io-client";
 import { sync } from 'vuex-router-sync'
 
@@ -11,7 +12,7 @@ import vuetify from './plugins/vuetify';
 import 'material-design-icons-iconfont/dist/material-design-icons.css';
 
 
-const connection = io.connect("http://localhost:5000");
+const connection = io.connect("http://" + window.location.hostname + ":5000");
 
 Vue.config.productionTip = false;
 
@@ -25,6 +26,7 @@ Vue.use(new VueSocketIO({
   }
 }), store);
 Vue.use(Vuetify);
+Vue.use(VueResizeText);
 
 new Vue({
   router,

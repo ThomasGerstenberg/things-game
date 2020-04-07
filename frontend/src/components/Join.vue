@@ -9,7 +9,7 @@
         required>
       </v-text-field>
     </v-row>
-    <v-row>
+    <v-row v-if="false">
       <v-text-field
         prepend-icon="lock"
         v-model="password"
@@ -24,6 +24,8 @@
 </template>
 
 <script>
+  import {mapMutations, mapState} from "vuex";
+
   export default {
     name: "Join",
     props: ["username"],
@@ -37,14 +39,20 @@
         ],
       }
     },
+    computed: {
+      ...mapState(["color"]),
+    },
     methods: {
+      ...mapMutations(["setUsername"]),
       joinGame() {
+        this.setUsername(this.username);
         console.log("Joining game: " + this.gameId +
           ", Password: " + this.password +
           ", Username: " + this.username);
         const params = {
-          game_id: this.gameId.toUpperCase(),
+          id: this.gameId.toUpperCase(),
           player_name: this.username,
+          color: this.color,
         };
         this.$socket.emit("join_game", params);
       }

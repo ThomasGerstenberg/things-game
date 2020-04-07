@@ -1,6 +1,7 @@
 from typing import List, Dict
 import os
 import logging
+import eventlet
 from threading import Lock
 from flask import Flask
 from flask_socketio import SocketIO, join_room, leave_room, send, emit
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 app.secret_key = os.getenv("THINGS_GAME_SECRET_KEY", "")
+
+DEFAULT_PLAYER_COLOR = "blue"
 
 
 class GameManager(object):
@@ -60,6 +63,36 @@ def send_update(event, game, player=None):
     emit(event, data, broadcast=True, room=game.info.game_id, include_self=True)
 
 
+class unpack(object):
+    def __init__(self, *args, **kwargs):
+        self.required = args
+        self.optional = kwargs
+
+    def __call__(self, func):
+        def f(data):
+            kwargs = {}
+            for arg in self.required:
+                kwargs[arg] = data[arg]
+            for name, default in self.optional.items():
+                kwargs[name] = data.get(name, default)
+            func(**kwargs)
+        return f
+
+
+@socketio.on("request_update")
+@unpack(game_id="", player_id="", session_key="")
+def request_update(game_id, player_id, session_key):
+    response = {"game": None}
+    game = manager.get_game(game_id)
+    if game:
+        try:
+            game.validate_player(player_id, session_key, can_be_observer=True)
+            response["game"] = game.info.to_dict()
+        except PlayerError:
+            pass
+    emit("game_update", response)
+
+
 @socketio.on("get_games")
 def get_games():
     games = []
@@ -74,15 +107,11 @@ def get_games():
 
 
 @socketio.on("create_game")
-def create_game(data):
-    gameroom_name = data.get("name", "")
-    password_hash = data.get("password", "")
-    password_salt = data.get("salt", "")
-    player_name = data.get("player_name", "Unknown")
-    observer = data.get("observer", False)
-
-    game = manager.create_game(gameroom_name, password_hash, password_salt)
-    player = game.add_player(player_name, observer)
+@unpack(name="", password="", salt="", player_name="Unknown",
+        color=DEFAULT_PLAYER_COLOR, observer=False)
+def create_game(name, password, salt, player_name, color, observer):
+    game = manager.create_game(name, password, salt)
+    player = game.add_player(player_name, observer, color)
 
     join_room(game.info.game_id)
     send_update("player_joined", game, player)
@@ -90,12 +119,9 @@ def create_game(data):
 
 
 @socketio.on("join_game")
-def join_game(data):
-    game_id = data.get("game_id", "")
-    password = data.get("password", "")
-    player_name = data.get("player_name")
-    observer = data.get("observer", False)
-
+@unpack(game_id="", password="", player_name="Unknown",
+        color=DEFAULT_PLAYER_COLOR, observer=False)
+def join_game(game_id, password, player_name, color, observer):
     game = manager.get_game(game_id)
     if not game:
         send_error("Unable to find game")
@@ -103,7 +129,7 @@ def join_game(data):
     if game.password != password:
         send_error("Incorrect password")
         return
-    player = game.add_player(player_name, observer)
+    player = game.add_player(player_name, observer, color)
 
     join_room(game_id)
     send_update("player_joined", game, player)
@@ -111,25 +137,40 @@ def join_game(data):
 
 
 @socketio.on("leave_game")
-def leave_game(data):
-    game_id = data.get("id", "")
-    player_id = data.get("player_id")
-
+@unpack(game_id="", player_id="", session_key="")
+def leave_game(game_id, player_id, session_key):
     game = manager.get_game(game_id)
     if not game:
         send_error("Unable to find game")
         return
 
     leave_room(game_id)
-    player = game.remove_player(player_id)
+    player = game.remove_player(player_id, session_key)
     if player:
         send_update("player_left", game, player)
 
 
 @socketio.on("start_game")
-def start_game(data):
-    game_id = data.get("id", "")
-    player_id = data.get("player_id")
+@unpack(game_id="", player_id="", session_key="")
+def start_game(game_id, player_id, session_key):
+    game = manager.get_game(game_id)
+    if not game:
+        send_error("Unable to find game")
+        return
+
+    try:
+        game.start_game(player_id, session_key)
+        send_update("game_started", game)
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+
+
+@socketio.on("set_topic")
+@unpack(game_id="", player_id="", session_key="", topic="")
+def set_topic(game_id, player_id, session_key, topic):
+    if not topic:
+        send_error("Topic was not set")
+        return
 
     game = manager.get_game(game_id)
     if not game:
@@ -137,8 +178,27 @@ def start_game(data):
         return
 
     try:
-        game.start_game(player_id)
-        send_update("game_started", game)
+        game.set_topic(player_id, session_key, topic)
+        send_update("topic_set", game)
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+
+
+@socketio.on("submit_answer")
+@unpack(game_id="", player_id="", session_key="", answer="")
+def submit_answer(game_id, player_id, session_key, answer):
+    if not answer:
+        send_error("Answer was not provided")
+        return
+
+    game = manager.get_game(game_id)
+    if not game:
+        send_error("Unable to find game")
+        return
+
+    try:
+        game.submit_answer(player_id, session_key, answer)
+        send_update("answer_submitted", game)
     except (GameStateError, PlayerError, InputError) as e:
         send_error(str(e))
 
