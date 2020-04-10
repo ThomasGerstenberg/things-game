@@ -55,12 +55,6 @@
     },
     methods: {
       leaveGame() {
-        const params = {
-          game_id: this.gameId,
-          player_id: this.playerId,
-          session_key: this.sessionKey,
-        };
-        this.$socket.emit("leave_game", params);
         this.$router.push("/");
       }
     },
@@ -70,7 +64,7 @@
       const params = {
         game_id: this.gameId,
         player_id: this.playerId,
-        sessionKey: this.sessionKey,
+        session_key: this.sessionKey,
       };
       this.$socket.emit("request_update", params);
     }

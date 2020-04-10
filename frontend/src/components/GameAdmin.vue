@@ -7,14 +7,15 @@
 </template>
 
 <script>
-  import {mapState} from "vuex";
+  import {mapGetters, mapState} from "vuex";
 
   export default {
     name: "GameAdmin",
     computed: {
       ...mapState(["game", "gameId", "playerId", "sessionKey"]),
+      ...mapGetters(["gameState"]),
       canStart() {
-        return this.game.players.length >= 3;
+        return this.game.players.length >= 3 && this.gameState === "not_started";
       }
     },
     methods: {

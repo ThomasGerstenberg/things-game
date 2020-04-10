@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from enum import Enum
 import random
 from threading import RLock
@@ -35,6 +35,31 @@ class Player(object):
     def to_dict(self):
         return to_dict(self, omit="session_key")
 
+    def __eq__(self, other):
+        if not isinstance(other, Player):
+            return False
+        return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)
+
+
+class Answer(object):
+    def __init__(self, answer_id, player, text):
+        self.id = answer_id
+        self.text = text
+        self.player = player
+        self.matched = False
+
+    def to_dict(self):
+        omit = None if self.matched else "player"
+        return to_dict(self, omit)
+
+    def __eq__(self, other):
+        if not isinstance(other, Answer):
+            return False
+        return self.id == other.id
+
 
 class GameInfo(object):
     def __init__(self, name, game_id, score_limit):
@@ -47,10 +72,37 @@ class GameInfo(object):
         self.topic_writer: Optional[Player] = None
         self.guesser: Optional[Player] = None
         self.current_topic = ""
-        self.unguessed_answers = []
+        self.answers: List[Answer] = []
 
     def to_dict(self):
-        return to_dict(self)
+        replace = dict(answers=[])
+        if self.state in [GameState.matching, GameState.round_complete]:
+            replace = None
+        return to_dict(self, replace=replace)
+
+    def find_answer(self, answer_id):
+        for a in self.answers:
+            if a.id == answer_id:
+                return a
+        return None
+
+    def remove_answer(self, player):
+        for a in self.answers:
+            if player == a.player:
+                self.answers.remove(a)
+                return
+
+    def reveal_all_answers(self):
+        for a in self.answers:
+            a.matched = True
+
+    def get_guessers(self):
+        return [a.player for a in self.answers if not a.matched]
+
+    def __eq__(self, other):
+        if not isinstance(other, GameInfo):
+            return False
+        return self.game_id == other.game_id
 
 
 class ThingsGame(object):
@@ -60,14 +112,18 @@ class ThingsGame(object):
         self.salt = salt
         self.owner: Optional[Player] = None
         self.lock = RLock()
-        self.player_answers = {}
+
+    def _generate_id(self, id_list):
+        item_id = generate_id()
+        while item_id in id_list:
+            item_id = generate_id()
+        return item_id
 
     def _generate_player_id(self):
-        player_id = generate_id()
-        current_ids = [p.id for p in self.info.players + self.info.observers]
-        while player_id in current_ids:
-            player_id = generate_id()
-        return player_id
+        return self._generate_id([p.id for p in self.info.players + self.info.observers])
+
+    def _generate_answer_id(self):
+        return self._generate_id([a.id for a in self.info.answers])
 
     def _find_player(self, player_id, player_list: List[Player] = None):
         if player_list is None:
@@ -94,13 +150,13 @@ class ThingsGame(object):
 
         self.info.topic_writer.is_topic_writer = True
 
-    def _select_next_guesser(self, guessers_remaining=None):
-        if not guessers_remaining:
+    def _select_next_guesser(self):
+        if not self.info.guesser:
             self.info.guesser = self._get_next_player(self.info.topic_writer)
         else:
             self.info.guesser.is_guessing = False
-            self.info.guesser = self._get_next_player(self.info.guesser, guessers_remaining)
-            self.info.guesser.is_guessing = True
+            self.info.guesser = self._get_next_player(self.info.guesser, self.info.get_guessers())
+        self.info.guesser.is_guessing = True
 
     def add_player(self, name, is_observer, color="blue"):
         with self.lock:
@@ -131,18 +187,15 @@ class ThingsGame(object):
             if self.info.topic_writer == player:
                 self._select_next_topic_writer()
         elif self.info.state == GameState.writing_answers:
-            if player in self.player_answers:
-                del self.player_answers[player]
+            self.info.remove_answer(player)
         elif self.info.state == GameState.matching:
-            answer = self.player_answers[player]
-            if answer in self.info.unguessed_answers:
-                self.info.unguessed_answers.remove(answer)
-            guessers_remaining = [p for p in self.info.players if p.submitted_answer and not p.answer]
+            self.info.remove_answer(player)
+            guessers_remaining = self.info.get_guessers()
             if player in guessers_remaining:
                 if len(guessers_remaining) <= 2:
                     self.info.state = GameState.round_complete
                 elif player is self.info.guesser:
-                    self._select_next_guesser(guessers_remaining)
+                    self._select_next_guesser()
         self.info.players.remove(player)
         return player
 
@@ -177,8 +230,9 @@ class ThingsGame(object):
         with self.lock:
             self.info.state = GameState.writing_topic
             self.player_answers = {}
-            self.info.unguessed_answers = []
+            self.info.answers = []
             self.info.guesser = None
+            self.info.current_topic = ""
 
             for player in self.info.players:
                 player.answer = ""
@@ -205,45 +259,61 @@ class ThingsGame(object):
             answer = answer.strip()
             if not answer:
                 raise InputError("Player did not write an answer")
-            self.player_answers[player] = answer
+            if len(answer) > 1:
+                answer = answer[0].upper() + answer[1:]
+            else:
+                answer = answer.upper()
+            self.info.answers.append(Answer(self._generate_answer_id(), player, answer))
             player.submitted_answer = True
 
-            if len(self.player_answers) == len(self.info.players):
+            if len(self.info.answers) == len(self.info.players):
                 self.start_matching()
 
     def start_matching(self):
         with self.lock:
-            self.info.unguessed_answers = list(self.player_answers.values())
-            rand.shuffle(self.info.unguessed_answers)
+            rand.shuffle(self.info.answers)
             self._select_next_guesser()
             self.info.state = GameState.matching
 
-    def submit_match(self, player_id, session_key, answer, guessed_player_id):
+    def validate_match(self, player_id, session_key, answer_id, guessed_player_id):
         with self.lock:
             player = self.validate_player(player_id, session_key, must_be_guessing=True)
             guessed_player = self._find_player(guessed_player_id)
-            answer = answer.strip()
 
-            if answer not in self.info.unguessed_answers:
-                raise InputError(f"Answer '{answer}' is not in the current game")
             if player_id == guessed_player_id:
                 raise InputError("Cannot guess yourself!")
-            guessers_remaining = [p for p in self.info.players if not p.answer and p.submitted_answer]
-            if guessed_player not in guessers_remaining:
+
+            # Get the list of guessers remaining
+            guessers = self.info.get_guessers()
+            # Find the answer based on the ID
+            guessed_answer = self.info.find_answer(answer_id)
+            if not guessed_answer:
+                raise InputError(f"Answer '{answer_id}' is not in the current game")
+            if guessed_player not in guessers:
                 raise GameStateError("Cannot guess a player that's not a remaining guesser")
 
-            guessed_player_answer = self.player_answers.get(guessed_player, "")
+            guessed_player_answer = None
+            for a in self.info.answers:
+                if a.player == guessed_player:
+                    guessed_player_answer = a
+                    break
+            if not guessed_player_answer:
+                raise GameStateError("Unable to find guessed player's answer")
+            return player, guessed_answer, guessed_player_answer
 
-            if answer != guessed_player_answer:
+    def finalize_match(self, player: Player, guessed_answer: Answer, guessed_player_answer: Answer):
+        with self.lock:
+            if guessed_answer != guessed_player_answer:
                 self._select_next_guesser()
-                return "", ""
+                return False
 
             player.score += 1
-            self.info.unguessed_answers.remove(answer)
-            guessed_player.answer = guessed_player_answer
+            guessed_player_answer.player.answer = guessed_player_answer.text
+            guessed_player_answer.matched = True
 
-            if len(guessers_remaining) == 2:
+            if len(self.info.get_guessers()) == 1:
                 player.score += 1
                 self.info.state = GameState.round_complete
+                self.info.reveal_all_answers()
 
-            return guessed_player_id, guessed_player_answer
+            return True

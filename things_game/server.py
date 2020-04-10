@@ -1,14 +1,21 @@
 from typing import List, Dict
 import os
 import logging
+import time
+from threading import Lock, Thread
+
 import eventlet
-from threading import Lock
+eventlet.monkey_patch()
+
+import flask
 from flask import Flask
 from flask_socketio import SocketIO, join_room, leave_room, send, emit
 
-from things_game.logic import ThingsGame
+from things_game.logic import GameState
+from things_game.manager import GameManager
 from things_game.utils import generate_id
 from things_game.errors import GameStateError, PlayerError, InputError
+from things_game.background_scheduler import BackgroundTaskScheduler
 
 
 logging.basicConfig(format="[%(asctime)s] [%(threadName)s] [%(name)s.%(funcName)s:%(lineno)s] [%(levelname)s]: %(message)s",
@@ -23,44 +30,21 @@ app.secret_key = os.getenv("THINGS_GAME_SECRET_KEY", "")
 DEFAULT_PLAYER_COLOR = "blue"
 
 
-class GameManager(object):
-    def __init__(self):
-        self.lock = Lock()
-        self.games: Dict[str, ThingsGame] = {}
-
-    def get_games(self):
-        with self.lock:
-            return self.games.values()[:]
-
-    def create_game(self, name, password_hash, password_salt):
-        with self.lock:
-            game_id = generate_id()
-            while game_id in self.games:
-                game_id = generate_id()
-
-            if not name:
-                name = game_id
-            game = ThingsGame(name, password_hash, password_salt, game_id)
-            self.games[game_id] = game
-            return game
-
-    def get_game(self, game_id):
-        with self.lock:
-            return self.games.get(game_id, None)
-
-
 manager = GameManager()
+background_scheduler = BackgroundTaskScheduler()
+background_scheduler.start()
 
 
 def send_error(message):
     emit("error", dict(error=message))
 
 
-def send_update(event, game, player=None):
+def send_update(event, game, player=None, context_aware=True):
     data = {"game": game.info.to_dict()}
     if player:
         data["player"] = player.to_dict()
-    emit(event, data, broadcast=True, room=game.info.game_id, include_self=True)
+    emit_func = emit if context_aware else socketio.emit
+    emit_func(event, data, broadcast=True, room=game.info.game_id)
 
 
 class unpack(object):
@@ -88,8 +72,8 @@ def request_update(game_id, player_id, session_key):
         try:
             game.validate_player(player_id, session_key, can_be_observer=True)
             response["game"] = game.info.to_dict()
-        except PlayerError:
-            pass
+        except PlayerError as e:
+            send_error(str(e))
     emit("game_update", response)
 
 
@@ -201,6 +185,46 @@ def submit_answer(game_id, player_id, session_key, answer):
         send_update("answer_submitted", game)
     except (GameStateError, PlayerError, InputError) as e:
         send_error(str(e))
+
+
+@socketio.on("submit_match")
+@unpack(game_id="", player_id="", session_key="", guessed_player_id="", answer_id="")
+def submit_match(game_id, player_id, session_key, guessed_player_id, answer_id):
+    game = manager.get_game(game_id)
+    if not game:
+        send_error("Unable to find game")
+        return
+
+    try:
+        player, guessed_answer, guessed_player_answer = game.validate_match(player_id, session_key,
+                                                                            answer_id, guessed_player_id)
+        data = {"player": player.to_dict(),
+                "guessed_answer": guessed_answer.to_dict(),
+                "guessed_player": guessed_player_answer.player.to_dict()}
+        emit("match_submitted", data, broadcast=True, room=game.info.game_id, include_self=True)
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+        return
+
+    def round_started():
+        game.start_round()
+        send_update("round_started", game, context_aware=False)
+
+    def round_complete():
+        round_complete_data = {"winner": player.to_dict()}
+        socketio.emit("round_complete", round_complete_data,
+                      broadcast=True, room=game.info.game_id)
+        background_scheduler.run_in(8, round_started)
+
+    def finalize():
+        result = game.finalize_match(player, guessed_answer, guessed_player_answer)
+        match_result_data = {"game": game.info.to_dict(), "result": result}
+        socketio.emit("match_result", match_result_data,
+                      room=game.info.game_id)
+        if game.info.state == GameState.round_complete:
+            background_scheduler.run_in(2, round_complete)
+
+    background_scheduler.run_in(3, finalize)
 
 
 @app.route("/")

@@ -8,12 +8,14 @@ import base64
 rand = random.SystemRandom()
 
 
-def to_dict(obj, omit=None):
+def to_dict(obj, omit=None, replace=None):
     members = {}
     if omit is None:
         omit = []
     elif not isinstance(omit, (list, tuple)):
         omit = [omit]
+    if replace is None or not isinstance(replace, dict):
+        replace = {}
 
     def convert(value):
         if hasattr(value, "to_dict"):
@@ -29,7 +31,10 @@ def to_dict(obj, omit=None):
     for name, val in obj.__dict__.items():
         if name.startswith("_") or name in omit:
             continue
-        members[name] = convert(val)
+        if name in replace:
+            members[name] = replace[name]
+        else:
+            members[name] = convert(val)
     return members
 
 

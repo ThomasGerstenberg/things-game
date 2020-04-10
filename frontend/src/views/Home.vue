@@ -48,7 +48,7 @@
       Join,
     },
     computed: {
-      ...mapState(['playerId', 'gameId'])
+      ...mapState(['playerId', 'gameId', "sessionKey"])
     },
     watch: {
       playerId() {
@@ -70,6 +70,14 @@
     },
     mounted() {
       this.username = this.$store.state.username;
+      if (this.gameId) {
+        const params = {
+          game_id: this.gameId,
+          player_id: this.playerId,
+          session_key: this.sessionKey,
+        };
+        this.$socket.emit("leave_game", params);
+      }
       this.reset();
     }
   }

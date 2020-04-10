@@ -31,11 +31,26 @@ export default new Vuex.Store({
   getters: {
     thisPlayer(state) {
       if (state.game) {
-        console.log(state.game);
         return state.game.players.find(p => p.id === state.playerId);
       }
 
       return undefined;
+    },
+    currentGuesser(state) {
+      if (state.game) {
+        return state.game.guesser;
+      }
+      return null;
+    },
+    otherGuessers(state) {
+      if (state.game) {
+        const thisPlayer = state.game.players.find(p => p.id === state.playerId);
+        return state.game.players.filter(p => (p.id !== thisPlayer.id) &&
+                                               p.submitted_answer &&
+                                               (p.answer === ""));
+      }
+
+      return [];
     },
     inGame(state) {
       return state.gameId !== "" && state.playerId !== "";
@@ -43,6 +58,10 @@ export default new Vuex.Store({
     topic(state) {
       if (!state.game) return "";
       return state.game.current_topic.charAt(0).toLowerCase() + state.game.current_topic.slice(1);
+    },
+    topicWriter(state) {
+      if (!state.game) return null;
+      return state.game.topic_writer;
     },
     gameState(state) {
       return state.game ? state.game.state : "";
@@ -82,6 +101,11 @@ export default new Vuex.Store({
       state.message = "Game has started!"
     },
 
+    SOCKET_round_started(state, message) {
+      state.game = message.game;
+      state.message = "Next round has started!"
+    },
+
     SOCKET_topic_set(state, message) {
       state.game = message.game;
       state.message = "Topic has been set!"
@@ -91,8 +115,13 @@ export default new Vuex.Store({
       state.game = message.game;
     },
 
+    SOCKET_match_result(state, message) {
+      console.log("Got match result");
+      state.game = message.game;
+    },
+
     SOCKET_error(state, message) {
-        state.error = message
+        state.message = message.error;
     },
 
     SOCKET_game_update(state, message) {
@@ -116,6 +145,10 @@ export default new Vuex.Store({
 
     setColor(state, color) {
       state.color = color;
+    },
+
+    setMessage(state, message) {
+      state.message = message;
     },
 
     reset(state) {

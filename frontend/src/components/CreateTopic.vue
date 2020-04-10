@@ -37,10 +37,14 @@
     watch: {
       gameState() {
         this.updateDialogState();
+      },
+      thisPlayer() {
+        this.updateDialogState();
       }
     },
     methods: {
       updateDialogState() {
+        console.log(this.gameState);
           this.showDialog = this.gameState === "writing_topic" && this.thisPlayer.is_topic_writer;
           if (!this.showDialog) this.topic = "";
       },
@@ -52,7 +56,7 @@
             session_key: this.sessionKey,
             topic: this.topic,
           };
-          this.$socket.emit("set_topic", params)
+          this.$socket.emit("set_topic", params);
         }
       }
     },
