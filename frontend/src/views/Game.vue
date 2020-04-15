@@ -9,7 +9,7 @@
         <p class="headline">Players</p>
       </v-row>
       <v-row>
-        <v-col cols="auto" v-for="p in game.players" :key="p.id" class="mx-0">
+        <v-col cols="auto" v-for="p in players" :key="p.id" class="mx-0">
           <player v-bind:player="p" :show-icons="true" class="mx-0"/>
         </v-col>
       </v-row>
@@ -74,7 +74,7 @@
     },
     computed: {
       ...mapState(['playerId', 'gameId', 'game']),
-      ...mapGetters(["topic", "gameState", "thisPlayer", "currentGuesser", "topicWriter"]),
+      ...mapGetters(["topic", "gameState", "thisPlayer", "currentGuesser", "topicWriter", "players"]),
     },
     mounted() {
       if (!this.gameId) {

@@ -29,28 +29,25 @@ export default new Vuex.Store({
   },
 
   getters: {
+    players(state) {
+      return state.game ? state.game.players : [];
+    },
+    otherPlayers(state, getters) {
+      return state.game ? state.game.players.filter(p => p.id !== getters.thisPlayer.id) : [];
+    },
     thisPlayer(state) {
-      if (state.game) {
-        return state.game.players.find(p => p.id === state.playerId);
-      }
-
-      return undefined;
+      return state.game ? state.game.players.find(p => p.id === state.playerId) : null;
     },
     currentGuesser(state) {
-      if (state.game) {
-        return state.game.guesser;
-      }
-      return null;
+      return state.game ? state.game.guesser : null;
     },
     otherGuessers(state) {
-      if (state.game) {
-        const thisPlayer = state.game.players.find(p => p.id === state.playerId);
-        return state.game.players.filter(p => (p.id !== thisPlayer.id) &&
-                                               p.submitted_answer &&
-                                               (p.answer === ""));
-      }
+      if (!state.game) return null;
 
-      return [];
+      const thisPlayer = state.game.players.find(p => p.id === state.playerId);
+      return state.game.players.filter(p => (p.id !== thisPlayer.id) &&
+                                             p.submitted_answer &&
+                                             (p.answer === ""));
     },
     inGame(state) {
       return state.gameId !== "" && state.playerId !== "";
@@ -91,6 +88,22 @@ export default new Vuex.Store({
       state.message = message.player.name + " left the game";
     },
 
+    SOCKET_player_removed(state, message) {
+      if (state.playerId === message.player.id) {
+        state.playerId = '';
+        state.gameId = '';
+        state.game = null;
+        state.sessionKey = null;
+        state.message = '';
+        state.error = '';
+        state.message = "You have been removed from the game";
+      }
+      else {
+        state.message = message.player.name + " has been removed from the game";
+      }
+      state.game = message.game;
+    },
+
     SOCKET_player_id(state, message) {
       state.playerId = message.player_id;
       state.sessionKey = message.session_key;
@@ -126,7 +139,6 @@ export default new Vuex.Store({
 
     SOCKET_game_update(state, message) {
       if (!message.game) {
-        console.log("Resetting State");
         state.playerId = '';
         state.gameId = '';
         state.game = null;
@@ -135,8 +147,13 @@ export default new Vuex.Store({
         state.error = '';
       }
       else {
-        this.game = message.game;
+        state.game = message.game;
       }
+    },
+
+    SOCKET_points_reset(state, message) {
+      state.message = "Points have been reset! New game in progress";
+      state.game = message.game
     },
 
     setUsername(state, username) {
@@ -152,7 +169,6 @@ export default new Vuex.Store({
     },
 
     reset(state) {
-      console.log("Resetting State");
       state.playerId = '';
       state.gameId = '';
       state.game = null;

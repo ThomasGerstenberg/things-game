@@ -1,0 +1,5 @@
+.card-title-wrap {
+    word-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
+}

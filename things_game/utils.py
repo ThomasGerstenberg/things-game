@@ -8,6 +8,22 @@ import base64
 rand = random.SystemRandom()
 
 
+class unpack(object):
+    def __init__(self, *args, **kwargs):
+        self.required = args
+        self.optional = kwargs
+
+    def __call__(self, func):
+        def f(data):
+            kwargs = {}
+            for arg in self.required:
+                kwargs[arg] = data[arg]
+            for name, default in self.optional.items():
+                kwargs[name] = data.get(name, default)
+            func(**kwargs)
+        return f
+
+
 def to_dict(obj, omit=None, replace=None):
     members = {}
     if omit is None:

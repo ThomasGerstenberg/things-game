@@ -44,9 +44,8 @@
     },
     methods: {
       updateDialogState() {
-        console.log(this.gameState);
-          this.showDialog = this.gameState === "writing_topic" && this.thisPlayer.is_topic_writer;
-          if (!this.showDialog) this.topic = "";
+        this.showDialog = this.gameState === "writing_topic" && this.thisPlayer.is_topic_writer;
+        if (!this.showDialog) this.topic = "";
       },
       submit() {
         if (this.topic) {

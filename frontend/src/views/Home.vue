@@ -19,14 +19,14 @@
       <v-row>
         <v-col md="6" xs="12">
           <v-card outlined tile class="pa-2">
-            <v-card-title class="text-no-wrap">Create Game</v-card-title>
-            <create v-bind:username="username"/>
+            <v-card-title class="text-no-wrap">Join Game</v-card-title>
+            <join v-bind:username="username"/>
           </v-card>
         </v-col>
         <v-col md="6" xs="12">
           <v-card outlined tile class="pa-2">
-            <v-card-title class="text-no-wrap">Join Game</v-card-title>
-            <join v-bind:username="username"/>
+            <v-card-title class="text-no-wrap">Create Game</v-card-title>
+            <create v-bind:username="username"/>
           </v-card>
         </v-col>
       </v-row>

@@ -11,7 +11,7 @@
       </v-hover>
     </template>
     <v-card>
-      <v-card-title>Who wrote '{{answer.text}}'?</v-card-title>
+      <v-card-title class="card-title-wrap">Who wrote '{{answer.text}}'?</v-card-title>
       <v-card-text>
         <v-list>
           <v-list-item

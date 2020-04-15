@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="showDialog" persistent max-width="600">
     <v-card>
-      <v-card-title>Things {{topic}}
+      <v-card-title class="card-title-wrap justify-center">Things {{topic}}
       </v-card-title>
       <v-card-text>
         <v-text-field v-model="answer"

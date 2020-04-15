@@ -9,9 +9,18 @@
       </div>
 
       <v-spacer></v-spacer>
+      <div v-if="gameId" class="theme--dark px-2 grey--text text--lighten-4">Game ID: {{gameId}}</div>
       <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner"/>
 
-      <v-btn v-if="inGame" @click="leaveGame" outlined class="mx-1">Leave Game</v-btn>
+      <v-btn v-if="inGame" @click="leaveGame" outlined class="mx-1" small>Leave Game</v-btn>
+      <v-dialog max-width="600" scrollable>
+        <template v-slot:activator="{on}">
+          <v-btn tile icon v-on="on" large>
+            <v-icon>help</v-icon>
+          </v-btn>
+        </template>
+        <help></help>
+      </v-dialog>
     </v-app-bar>
 
     <v-content>
@@ -30,11 +39,13 @@
 </template>
 
 <script>
-  import GameAdmin from "./components/GameAdmin";
   import {mapGetters, mapState} from "vuex";
+  import GameAdmin from "./components/GameAdmin";
+  import Help from "./components/Help";
   export default {
     name: 'App',
     components: {
+      Help,
       GameAdmin
     },
     data: () => ({
@@ -70,3 +81,7 @@
     }
   };
 </script>
+
+<style>
+
+</style>

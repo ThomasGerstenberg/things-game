@@ -6,7 +6,7 @@
       <v-card-title class="justify-center">
         Round Complete
       </v-card-title>
-      <v-card-text class="text-center">
+      <v-card-text class="text-center card-title-wrap">
         <p v-if="thisPlayerWon" class="headline">You won the round!</p>
         <span v-else>
           <player :player="winner" :show-icons="false"/>

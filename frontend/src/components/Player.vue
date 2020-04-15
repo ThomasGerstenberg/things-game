@@ -34,16 +34,8 @@
 
       }
     },
-    watch: {
-      thisPlayer() {
-
-      }
-    },
     computed: {
       ...mapState(["game", "gameId", "playerId", "sessionKey"]),
-      isMe() {
-        return this.player.id === this.playerId;
-      }
     }
   }
 </script>

@@ -28,7 +28,7 @@
           </v-container>
         </v-overlay>
       </v-fade-transition>
-      <v-card-title class="justify-center">{{playerName}} guessed {{guessedPlayerName}} wrote</v-card-title>
+      <v-card-title class="justify-center card-title-wrap">{{playerName}} guessed {{guessedPlayerName}} wrote</v-card-title>
       <v-card-subtitle class="justify-center">{{guessedAnswer}}</v-card-subtitle>
     </v-card>
   </v-dialog>
