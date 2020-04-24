@@ -267,8 +267,3 @@ def submit_match(game: ThingsGame, player_id, session_key, guessed_player_id, an
             background_scheduler.run_in(2, round_complete)
 
     background_scheduler.run_in(3, finalize)
-
-
-@app.route("/")
-def index():
-    return dict(hello='world')

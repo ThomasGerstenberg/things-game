@@ -13,7 +13,7 @@ import 'material-design-icons-iconfont/dist/material-design-icons.css';
 import './assets/css/global.css';
 
 
-const connection = io.connect("http://" + window.location.hostname + ":5000");
+const connection = io.connect("http://" + window.location.host);
 
 Vue.config.productionTip = false;
 

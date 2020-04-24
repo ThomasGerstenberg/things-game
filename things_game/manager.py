@@ -44,7 +44,8 @@ class GameManager(object):
                 t_since_last_update = now - game.last_update_time
                 if t_since_last_update > stale_time_seconds or not game.info.players:
                     games_to_remove[game_id] = []
-                logger.info(f"Pruning game {game_id}, {t_since_last_update} seconds since last update (created {game.create_time})")
+                    logger.info(f"Pruning game {game_id}, {int(t_since_last_update)} seconds since last update "
+                                f"(created {time.strftime('%Y-%m-%d %H:%M:%S', game.create_time)}). Players: {len(game.info.players)}")
 
             for game_id in games_to_remove:
                 del self.games[game_id]
