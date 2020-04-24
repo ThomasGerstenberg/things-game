@@ -1,8 +1,5 @@
-from typing import List, Dict
 import os
 import logging
-import time
-from threading import Lock, Thread
 
 import eventlet
 eventlet.monkey_patch()
@@ -43,7 +40,7 @@ def _prune_task():
 
 
 # TODO: Re-enable pruning
-# background_scheduler.run_every(15*60, _prune_task)
+background_scheduler.run_every(15*60, _prune_task)
 
 
 class GameCommand(unpack):
@@ -58,7 +55,7 @@ class GameCommand(unpack):
                 return
             return func(game, *args, **kwargs)
 
-        super(GameCommand, self).__call__(f)
+        return super(GameCommand, self).__call__(f)
 
 
 def send_error(message):
@@ -204,6 +201,16 @@ def set_topic(game: ThingsGame, player_id, session_key, topic):
         send_error(str(e))
 
 
+@socketio.on("skip_topic_writer")
+@GameCommand(player_id="", session_key="")
+def skip_topic_writer(game: ThingsGame, player_id, session_key):
+    try:
+        game.skip_topic_writer(player_id, session_key)
+        send_update("topic_writer_skipped", game)
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+
+
 @socketio.on("submit_answer")
 @GameCommand(player_id="", session_key="", answer="")
 def submit_answer(game: ThingsGame, player_id, session_key, answer):
@@ -215,6 +222,16 @@ def submit_answer(game: ThingsGame, player_id, session_key, answer):
         send_update("answer_submitted", game)
     except (GameStateError, PlayerError, InputError) as e:
         send_error(str(e))
+
+
+@socketio.on("skip_answer")
+@GameCommand(player_id="", session_key="")
+def skip_answer(game: ThingsGame, player_id, session_key):
+    try:
+        pass
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+
 
 
 @socketio.on("submit_match")

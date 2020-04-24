@@ -19,9 +19,16 @@ class GameState(Enum):
     game_over = "game_over"
 
 
+class PlayerState(Enum):
+    active = "active"
+    skipping_round = "skipping_round"
+    inactive = "inactive"
+
+
 class Player(object):
     def __init__(self, name, player_id="", is_observer=False, is_owner=False, color="blue"):
         self.name = name
+        self.state = PlayerState.active
         self.id = player_id or generate_id()
         self.session_key = generate_key()
         self.is_observer = is_observer
@@ -98,7 +105,7 @@ class GameInfo(object):
             a.matched = True
 
     def get_guessers(self):
-        return [p for p in self.players if p.submitted_answer and p.answer]
+        return [p for p in self.players if p.submitted_answer and not p.answer]
 
     def next_player(self, player: Player, player_list: List[Player] = None):
         if player_list is None:
@@ -269,7 +276,6 @@ class ThingsGame(object):
         self._updated()
         with self.lock:
             self.info.state = GameState.writing_topic
-            self.player_answers = {}
             self.info.answers = []
             self.info.guesser = None
             self.info.current_topic = ""
@@ -291,6 +297,17 @@ class ThingsGame(object):
                 raise InputError("Topic writer did not provide a topic")
             self.info.current_topic = topic
             self.info.state = GameState.writing_answers
+
+    def skip_topic_writer(self, player_id: str, session_key: str):
+        self._updated()
+        with self.lock:
+            if self.info.state != GameState.writing_topic:
+                raise GameStateError("Cannot set topic in this game state")
+            player = self.validate_player(player_id, session_key)
+            if not player.is_owner and not player.is_topic_writer:
+                raise PlayerError("Only the owner or current topic writer cna skip")
+
+            self.info.next_topic_writer()
 
     def submit_answer(self, player_id: str, session_key: str, answer: str):
         self._updated()
@@ -323,6 +340,17 @@ class ThingsGame(object):
 
             if len(self.info.answers) == len(self.info.players):
                 self.start_matching()
+
+    def skip_answer(self, player_id: str, session_key: str):
+        self._updated()
+        with self.lock:
+            if self.matching:
+                raise GameStateError("Already in the process of matching")
+            if self.info.state != GameState.writing_answers:
+                raise GameStateError("Cannot submit an answer in this game state")
+            player = self.validate_player(player_id, session_key)
+            if player.submitted_answer:
+                raise PlayerError("Already submitted answer, cannot skip")
 
     def start_matching(self):
         self._updated()
