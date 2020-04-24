@@ -318,6 +318,8 @@ class ThingsGame(object):
                 raise GameStateError("Cannot submit an answer in this game state")
             player = self.validate_player(player_id, session_key)
             answer = answer.strip()
+            if answer.lower().startswith("things"):
+                answer = answer[len("things"):].strip()
             if not answer:
                 raise InputError("Player did not write an answer")
             if len(answer) > 1:

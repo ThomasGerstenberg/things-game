@@ -3,7 +3,7 @@ from typing import Dict
 import logging
 import time
 from things_game.logic import ThingsGame
-from things_game.utils import generate_id
+from things_game.utils import generate_id, generate_game_id
 
 
 logger = logging.getLogger(__name__)
@@ -66,9 +66,13 @@ class GameManager(object):
 
     def create_game(self, name, password_hash, password_salt):
         with self.lock:
-            game_id = generate_id()
+            game_id = generate_game_id()
+            i = 0
             while game_id in self.games:
-                game_id = generate_id()
+                if i < 100:
+                    game_id = generate_game_id()
+                else:
+                    game_id = generate_id()
 
             if not name:
                 name = game_id

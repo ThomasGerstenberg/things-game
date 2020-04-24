@@ -1,3 +1,4 @@
+import os
 import string
 from enum import Enum
 import random
@@ -6,6 +7,16 @@ import base64
 
 
 rand = random.SystemRandom()
+
+word_list = []
+
+
+def _init_word_list():
+    with open(os.path.join(os.path.dirname(__file__), "word_id_list.txt"), "r") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                word_list.append(line.upper())
 
 
 class unpack(object):
@@ -52,6 +63,12 @@ def to_dict(obj, omit=None, replace=None):
         else:
             members[name] = convert(val)
     return members
+
+
+def generate_game_id():
+    if not word_list:
+        _init_word_list()
+    return rand.choice(word_list)
 
 
 def generate_id(length=6):
