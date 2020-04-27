@@ -9,8 +9,12 @@
       </div>
 
       <v-spacer></v-spacer>
-      <div v-if="gameId" class="theme--dark px-2 grey--text text--lighten-4">Game ID: {{gameId}}</div>
-      <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner"/>
+      <div v-if="gameId"
+           class="theme--dark px-2 grey--text text--lighten-4">
+        Game ID: {{gameId}}
+      </div>
+      <color-picker v-if="inGame" class="mx-4"/>
+      <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner" class="mx-2"/>
 
       <v-btn v-if="inGame" @click="leaveGame" outlined class="mx-1" small>Leave Game</v-btn>
       <v-dialog max-width="600" scrollable>
@@ -39,12 +43,14 @@
 </template>
 
 <script>
-  import {mapGetters, mapState} from "vuex";
+  import {mapGetters, mapMutations, mapState} from "vuex";
   import GameAdmin from "./components/GameAdmin";
   import Help from "./components/Help";
+  import ColorPicker from "./components/ColorPicker";
   export default {
     name: 'App',
     components: {
+      ColorPicker,
       Help,
       GameAdmin
     },
@@ -58,13 +64,25 @@
       },
       error() {
         this.showError = !!this.error;
+      },
+      color() {
+        if (!this.inGame)
+          return;
+        this.$socket.emit("change_color", {
+          game_id: this.gameId,
+          player_id: this.playerId,
+          session_key: this.sessionKey,
+          color: this.color,
+        });
+        this.setMessage("Color should take effect on next game update")
       }
     },
     computed: {
-      ...mapState(["gameId", "playerId", "sessionKey", "message", "error"]),
+      ...mapState(["gameId", "playerId", "sessionKey", "message", "error", "color"]),
       ...mapGetters(["thisPlayer", "inGame"])
     },
     methods: {
+      ...mapMutations(["setMessage"]),
       leaveGame() {
         this.$router.push("/");
       }

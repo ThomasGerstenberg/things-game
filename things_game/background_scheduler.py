@@ -59,8 +59,8 @@ class _PeriodicTask(_Task):
         return self.cancelled
 
     def execute(self):
-        self.action(*self.args, **self.kwargs)
         self.last_run_time = time.time()
+        self.action(*self.args, **self.kwargs)
 
     def cancel(self):
         self.cancelled = True

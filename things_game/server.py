@@ -168,6 +168,18 @@ def remove_player(game: ThingsGame, player_id, session_key, player_id_to_remove)
         send_update("round_started", game)
 
 
+@socketio.on("change_color")
+@GameCommand(player_id="", session_key="", color="")
+def change_color(game: ThingsGame, player_id, session_key, color):
+    try:
+        if not color:
+            raise InputError("Failed to set color")
+        player = game.validate_player(player_id, session_key)
+        player.color = color
+    except (GameStateError, PlayerError, InputError) as e:
+        send_error(str(e))
+
+
 @socketio.on("start_game")
 @GameCommand(player_id="", session_key="")
 def start_game(game: ThingsGame, player_id, session_key):

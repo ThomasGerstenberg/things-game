@@ -48,6 +48,9 @@
       hexColor() {
         const color = Object.keys(this.colors).find(k => this.colors[k] === this.hexColor);
         this.setColor(color);
+      },
+      color() {
+        this.updateColor(this.color);
       }
     },
     computed: {
@@ -59,9 +62,12 @@
     },
     methods: {
       ...mapMutations(["setColor"]),
+      updateColor(color) {
+        this.hexColor = this.colors[color];
+      }
     },
     mounted() {
-      this.hexColor = this.colors[this.color];
+      this.updateColor(this.color)
     }
   }
 </script>

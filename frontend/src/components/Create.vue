@@ -34,7 +34,7 @@
         gameName: '',
         password: '',
         nameRules: [
-          v => !!v || "Must enter a name",
+          // v => !!v || "Must enter a name",
         ],
       }
     },
