@@ -7,9 +7,8 @@ After=network.target
 [Service]
 User=ubuntu
 Group=www-data
-WorkingDirectory=/home/ubuntu/things-game
-Environment="PATH=/home/ubuntu/dev/things-game"
-ExecStart=/home/ubuntu/dev/things-game/.env/bin/gunicorn --access-logfile - --worker-class eventlet --workers 1 wsgi:app
+WorkingDirectory=/home/ubuntu/dev/things-game
+ExecStart=/home/ubuntu/dev/things-game/venv/bin/gunicorn --access-logfile - --worker-class eventlet --workers 1 wsgi:app
 
 [Install]
 WantedBy=multi-user.target
