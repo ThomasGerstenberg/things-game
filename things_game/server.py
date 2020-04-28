@@ -13,6 +13,7 @@ from things_game.manager import GameManager
 from things_game.utils import unpack
 from things_game.errors import GameStateError, PlayerError, InputError
 from things_game.background_scheduler import BackgroundTaskScheduler
+from things_game.topics import TopicsList
 
 
 logging.basicConfig(format="[%(asctime)s] [%(threadName)s] [%(name)s.%(funcName)s:%(lineno)s] [%(levelname)s]: %(message)s",
@@ -30,6 +31,7 @@ DEFAULT_PLAYER_COLOR = "blue"
 manager = GameManager()
 background_scheduler = BackgroundTaskScheduler()
 background_scheduler.start()
+topics = TopicsList()
 
 
 def _prune_task():
@@ -198,6 +200,12 @@ def reset_points(game: ThingsGame, player_id, session_key):
         send_update("points_reset", game)
     except (GameStateError, PlayerError, InputError) as e:
         send_error(str(e))
+
+
+@socketio.on("get_random_topic")
+def get_random_topic():
+    topic = topics.get_random_topic()
+    emit("random_topic", {"text": topic})
 
 
 @socketio.on("set_topic")

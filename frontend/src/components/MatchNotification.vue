@@ -73,8 +73,6 @@
         this.showNotification = true;
       },
       match_result: function(data) {
-        console.log("Match Result");
-        console.log(data);
         this.matchGuessResult = data.result;
         this.showNotification = true;
         this.showGuessResult = true;

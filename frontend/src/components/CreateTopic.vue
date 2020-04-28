@@ -14,6 +14,16 @@
         </v-text-field>
       </v-card-text>
       <v-card-actions>
+        <v-tooltip bottom v-if="showHelp">
+          <template v-slot:activator="{on}">
+            <v-btn color="primary" text x-small
+                   v-on="on"
+                   @click="requestTopic">
+              Need Inspiration?
+            </v-btn>
+          </template>
+          <span>Click here for a topic suggestion</span>
+        </v-tooltip>
         <v-spacer />
         <v-btn color="primary darken-1" text @click="submit">Submit</v-btn>
       </v-card-actions>
@@ -30,6 +40,7 @@
       return {
         topic: '',
         showDialog: false,
+        showHelp: false,
       };
     },
     computed: {
@@ -64,10 +75,21 @@
           };
           this.$socket.emit("set_topic", params);
         }
+      },
+      requestTopic() {
+        this.$socket.emit("get_random_topic")
+      }
+    },
+    sockets: {
+      random_topic: function(data) {
+        this.showHelp = false;
+        this.topic = data.text;
       }
     },
     mounted() {
       this.updateDialogState();
+      this.showHelp = false;
+      setTimeout(() => this.showHelp = true, 20000);
     }
   }
 </script>
