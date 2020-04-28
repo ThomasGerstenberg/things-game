@@ -1,13 +1,17 @@
 <template>
   <v-container>
     <v-row>
-      <v-text-field
-        prepend-icon="person_add"
-        v-model="gameId"
-        :rules="idRules"
-        label="Game ID"
-        required>
-      </v-text-field>
+      <v-col cols="12" md="6" lg="4">
+        <v-text-field
+          prepend-icon="person_add"
+          v-model="gameId"
+          :rules="idRules"
+          label="Game ID"
+          autocomplete="off"
+          @keypress.enter="joinGame"
+          required>
+        </v-text-field>
+      </v-col>
     </v-row>
     <v-row v-if="false">
       <v-text-field

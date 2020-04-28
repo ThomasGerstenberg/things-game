@@ -6,6 +6,8 @@
       <v-card-text>
         <v-text-field v-model="answer"
                       @keypress.enter="submit"
+                      ref="answerInput"
+                      autocomplete="off"
                       required>
         </v-text-field>
       </v-card-text>
@@ -43,7 +45,13 @@
     methods: {
       updateDialogState() {
         this.showDialog = this.gameState === "writing_answers" && !this.thisPlayer.submitted_answer;
-        if (!this.showDialog) this.answer = "";
+        if (!this.showDialog) {
+          this.answer = "";
+        }
+        else {
+          requestAnimationFrame(() => this.$refs.answerInput.focus());
+          // this.$nextTick(() => this.$refs.answerInput.focus());
+        }
       },
       submit() {
         if (this.answer) {

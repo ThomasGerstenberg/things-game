@@ -8,6 +8,8 @@
         <v-text-field label="Things..."
                       v-model="topic"
                       @keypress.enter="submit"
+                      ref="topicInput"
+                      autocomplete="off"
                       required>
         </v-text-field>
       </v-card-text>
@@ -45,7 +47,12 @@
     methods: {
       updateDialogState() {
         this.showDialog = this.gameState === "writing_topic" && this.thisPlayer.is_topic_writer;
-        if (!this.showDialog) this.topic = "";
+        if (!this.showDialog) {
+          this.topic = "";
+        }
+        else {
+          requestAnimationFrame(() => this.$refs.topicInput.focus());
+        }
       },
       submit() {
         if (this.topic) {

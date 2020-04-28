@@ -7,6 +7,7 @@
           v-model="username"
           :rules="nameRules"
           label="Username"
+          autofocus
           required>
         </v-text-field>
       </v-col>

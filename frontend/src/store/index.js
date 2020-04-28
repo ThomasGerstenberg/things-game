@@ -25,7 +25,7 @@ export default new Vuex.Store({
     game: null,
     error: null,
     message: '',
-    color: 'blue',
+    color: '',
   },
 
   getters: {

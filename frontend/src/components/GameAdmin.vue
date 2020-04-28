@@ -1,27 +1,36 @@
 <template>
   <div>
-    <v-menu bottom :disabled="otherPlayers.length === 0" class="mx-1">
+    <v-menu bottom :close-on-content-click="false">
       <template v-slot:activator="{on}">
-        <v-btn outlined v-on="on" small>
-          Remove
-          <v-icon right>person</v-icon>
+        <v-btn v-on="on" tile icon>
+          <v-icon>settings</v-icon>
         </v-btn>
       </template>
       <v-list>
-        <v-list-item v-for="p in otherPlayers" :key="p.id" @click="removePlayer(p)">
-          <v-list-item-title>{{p.name}}</v-list-item-title>
+        <v-list-item :disabled="!canStart" @click="startGame">
+          <v-list-item-title>Start Game</v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="resetPoints">
+          <v-list-item-title>Reset Points</v-list-item-title>
+        </v-list-item>
+        <v-list-item>
+          <v-menu bottom :disabled="otherPlayers.length === 0">
+            <template v-slot:activator="{on}">
+              <v-list-item v-on="on">
+                <v-list-item-title>
+                  Remove Player
+                </v-list-item-title>
+              </v-list-item>
+            </template>
+            <v-list>
+              <v-list-item v-for="p in otherPlayers" :key="p.id" @click="removePlayer(p)">
+                <v-list-item-title>{{p.name}}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
         </v-list-item>
       </v-list>
     </v-menu>
-    <v-btn outlined class="mx-1" small
-            @click="resetPoints">
-      Reset Points
-    </v-btn>
-    <v-btn outlined class="mx-1" small
-           :disabled="!canStart"
-           @click="startGame">
-      Start Game
-    </v-btn>
   </div>
 </template>
 

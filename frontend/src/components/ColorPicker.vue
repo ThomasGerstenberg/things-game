@@ -1,7 +1,7 @@
 <template>
   <v-menu offset-y>
     <template v-slot:activator="{on}">
-      <v-btn :color="color" dark small fab v-on="on">
+      <v-btn :color="color" dark x-small fab v-on="on">
         <v-icon dark>palette</v-icon>
       </v-btn>
     </template>
@@ -67,7 +67,14 @@
       }
     },
     mounted() {
-      this.updateColor(this.color)
+      if (!this.color) {
+        const colorNames = Object.keys(this.colors);
+        const i = Math.floor(Math.random() * colorNames.length);
+        this.setColor(colorNames[i]);
+        this.updateColor(colorNames[i])
+      }
+      else
+        this.updateColor(this.color)
     }
   }
 </script>

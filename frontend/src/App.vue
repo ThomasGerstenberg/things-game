@@ -10,17 +10,19 @@
 
       <v-spacer></v-spacer>
       <div v-if="gameId"
-           class="theme--dark px-2 grey--text text--lighten-4">
-        Game ID: {{gameId}}
+           class="theme--dark grey--text text--lighten-4 body-2">
+        ID: {{gameId}}
         <v-btn tile icon x-small
                @click="copyInvite">
-          <v-icon class="grey--text text--lighten-4">mdi-content-copy</v-icon>
+          <v-icon class="grey--text text--lighten-4 mr-2">mdi-content-copy</v-icon>
         </v-btn>
       </div>
-      <color-picker v-if="inGame" class="mx-4"/>
-      <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner" class="mx-2"/>
+      <color-picker v-if="inGame" class=""/>
+      <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner" class=""/>
 
-      <v-btn v-if="inGame" @click="leaveGame" outlined class="mx-1" small>Leave Game</v-btn>
+      <v-btn v-if="inGame" @click="leaveGame" tile icon>
+        <v-icon>mdi-logout</v-icon>
+      </v-btn>
       <v-dialog max-width="600" scrollable>
         <template v-slot:activator="{on}">
           <v-btn tile icon v-on="on" large>
