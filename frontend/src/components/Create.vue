@@ -1,6 +1,6 @@
 <template>
   <v-container>
-    <v-row>
+    <v-row v-if="false">
       <v-text-field
         prepend-icon="group_add"
         v-model="gameName"

@@ -12,6 +12,10 @@
       <div v-if="gameId"
            class="theme--dark px-2 grey--text text--lighten-4">
         Game ID: {{gameId}}
+        <v-btn tile icon x-small
+               @click="copyInvite">
+          <v-icon class="grey--text text--lighten-4">mdi-content-copy</v-icon>
+        </v-btn>
       </div>
       <color-picker v-if="inGame" class="mx-4"/>
       <game-admin v-if="inGame && thisPlayer && thisPlayer.is_owner" class="mx-2"/>
@@ -36,9 +40,7 @@
         </v-row>
       </v-container>
     </v-content>
-    <v-snackbar :timeout="3000" v-model="showSnackbar">
-      {{message}}
-    </v-snackbar>
+    <notification/>
   </v-app>
 </template>
 
@@ -47,24 +49,18 @@
   import GameAdmin from "./components/GameAdmin";
   import Help from "./components/Help";
   import ColorPicker from "./components/ColorPicker";
+  import Notification from "./components/Notification";
   export default {
     name: 'App',
     components: {
+      Notification,
       ColorPicker,
       Help,
       GameAdmin
     },
     data: () => ({
-      showSnackbar: false,
-      showError: false,
     }),
     watch: {
-      message() {
-        this.showSnackbar = !!this.message;
-      },
-      error() {
-        this.showError = !!this.error;
-      },
       color() {
         if (!this.inGame)
           return;
@@ -78,16 +74,25 @@
       }
     },
     computed: {
-      ...mapState(["gameId", "playerId", "sessionKey", "message", "error", "color"]),
+      ...mapState(["gameId", "playerId", "sessionKey", "error", "color"]),
       ...mapGetters(["thisPlayer", "inGame"])
     },
     methods: {
       ...mapMutations(["setMessage"]),
       leaveGame() {
         this.$router.push("/");
-      }
+      },
+      copyInvite() {
+        var inviteUrl = window.location.origin + "/?gameId=" + this.gameId;
+        this.$copyText(inviteUrl).then(
+          () => this.setMessage("Invite link copied to clipboard"),
+          () => this.setMessage("Failed to copy invite link to clipboard")
+        );
+      },
     },
     mounted() {
+      // Clear any leftover messages
+      this.setMessage("");
       if (!this.gameId)
         return;
       const params = {

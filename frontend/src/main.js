@@ -2,6 +2,7 @@ import Vue from 'vue'
 import VueSocketIO   from 'vue-socket.io';
 import Vuetify from "vuetify";
 import VueResizeText from 'vue-resize-text';
+import VueClipboard from "vue-clipboard2";
 import io from "socket.io-client";
 import { sync } from 'vuex-router-sync'
 
@@ -28,6 +29,7 @@ Vue.use(new VueSocketIO({
 }), store);
 Vue.use(Vuetify);
 Vue.use(VueResizeText);
+Vue.use(VueClipboard);
 
 new Vue({
   router,

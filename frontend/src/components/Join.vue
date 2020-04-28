@@ -57,6 +57,11 @@
         };
         this.$socket.emit("join_game", params);
       }
+    },
+    mounted() {
+      if (this.$route.query.gameId) {
+        this.gameId = this.$route.query.gameId;
+      }
     }
   }
 </script>
