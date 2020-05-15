@@ -1,5 +1,6 @@
 import os
 import logging
+from logging.handlers import TimedRotatingFileHandler
 
 import eventlet
 eventlet.monkey_patch()
@@ -16,8 +17,20 @@ from things_game.background_scheduler import BackgroundTaskScheduler
 from things_game.topics import TopicsList
 
 
-logging.basicConfig(format="[%(asctime)s] [%(threadName)s] [%(name)s.%(funcName)s:%(lineno)s] [%(levelname)s]: %(message)s",
-                    level="DEBUG")
+def configure_logger(stream_level="DEBUG", filename="", file_level="INFO"):
+    fmt = "[%(asctime)s] [%(threadName)s] [%(name)s.%(funcName)s:%(lineno)s] [%(levelname)s]: %(message)s"
+    logging.basicConfig(format=fmt, level=stream_level)
+    if filename:
+        file_handler = TimedRotatingFileHandler(filename, when="midnight", backupCount=14)
+        file_handler.setLevel(file_level)
+        file_handler.setFormatter(logging.Formatter(fmt))
+        tg_logger = logging.getLogger("things_game")
+        tg_logger.addHandler(file_handler)
+
+
+LOG_FILENAME = os.path.join(os.path.expanduser("~"), "things_game.log")
+configure_logger(filename=LOG_FILENAME)
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,13 +48,12 @@ topics = TopicsList()
 
 
 def _prune_task():
-    logger.info("Pruning games...")
+    logger.debug("Pruning games...")
     games_removed = manager.prune()
     for game_id in games_removed:
         socketio.close_room(game_id)
 
 
-# TODO: Re-enable pruning
 background_scheduler.run_every(15*60, _prune_task)
 
 
@@ -53,16 +65,17 @@ class GameCommand(unpack):
         def f(game_id, *args, **kwargs):
             game = manager.get_game(game_id)
             if not game:
-                send_error("Unable to find game")
+                send_error("Unable to find Game ID {}".format(game_id))
                 return
             return func(game, *args, **kwargs)
 
         return super(GameCommand, self).__call__(f)
 
 
-def send_error(message):
-    logger.error(message, exc_info=True)
-    emit("error", dict(error=message))
+def send_error(error):
+    exc_info = isinstance(error, BaseException)
+    logger.error(error, exc_info=exc_info)
+    emit("error", dict(error=str(error)))
 
 
 def send_update(event, game, player=None, context_aware=True):
@@ -88,7 +101,7 @@ def request_update(game_id, player_id, session_key):
                 logger.exception(e)
             response["game"] = game.info.to_dict()
         except PlayerError as e:
-            send_error(str(e))
+            send_error(e)
     emit("game_update", response)
 
 
@@ -111,6 +124,7 @@ def create_game(name, password, salt, player_name, color, observer):
     game = manager.create_game(name, password, salt)
     player = game.add_player(player_name, observer, color)
     manager.update_player_sid(game.id, player.id, flask.request.sid)
+    logger.info("Created game id {} for player '{}'".format(game.id, player_name))
 
     join_room(game.info.game_id)
     send_update("player_joined", game, player)
@@ -125,6 +139,7 @@ def join_game(game: ThingsGame, password, player_name, color, observer):
         return
     player = game.add_player(player_name, observer, color)
     manager.update_player_sid(game.id, player.id, flask.request.sid)
+    logger.info("Player '{}' joined game {}".format(player_name, game.id))
 
     join_room(game.id)
     send_update("player_joined", game, player)
@@ -140,6 +155,7 @@ def leave_game(game: ThingsGame, player_id, session_key):
         manager.remove_player_sid(game.id, player_id)
         player = game.remove_player(player_id, session_key)
         new_state = game.info.state
+        logger.info("Player '{}' left game {}".format(player.name, game.id))
         send_update("player_left", game, player)
     except PlayerError:
         return
@@ -163,7 +179,7 @@ def remove_player(game: ThingsGame, player_id, session_key, player_id_to_remove)
         if player_sid:
             leave_room(game.id, player_sid)
     except PlayerError as e:
-        send_error(str(e))
+        send_error(e)
         return
     if initial_state != new_state and new_state == GameState.round_complete:
         game.start_round()
@@ -179,7 +195,7 @@ def change_color(game: ThingsGame, player_id, session_key, color):
         player = game.validate_player(player_id, session_key)
         player.color = color
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("start_game")
@@ -188,8 +204,9 @@ def start_game(game: ThingsGame, player_id, session_key):
     try:
         game.start_game(player_id, session_key)
         send_update("game_started", game)
+        logger.info("Game {} started".format(game.id))
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("reset_points")
@@ -199,7 +216,7 @@ def reset_points(game: ThingsGame, player_id, session_key):
         game.reset_points(player_id, session_key)
         send_update("points_reset", game)
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("get_random_topic")
@@ -218,7 +235,7 @@ def set_topic(game: ThingsGame, player_id, session_key, topic):
         game.set_topic(player_id, session_key, topic)
         send_update("topic_set", game)
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("skip_topic_writer")
@@ -228,7 +245,7 @@ def skip_topic_writer(game: ThingsGame, player_id, session_key):
         game.skip_topic_writer(player_id, session_key)
         send_update("topic_writer_skipped", game)
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("submit_answer")
@@ -241,7 +258,7 @@ def submit_answer(game: ThingsGame, player_id, session_key, answer):
         game.submit_answer(player_id, session_key, answer)
         send_update("answer_submitted", game)
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 @socketio.on("skip_answer")
@@ -250,7 +267,7 @@ def skip_answer(game: ThingsGame, player_id, session_key):
     try:
         pass
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
 
 
 
@@ -265,7 +282,7 @@ def submit_match(game: ThingsGame, player_id, session_key, guessed_player_id, an
                 "guessed_player": guessed_player_answer.player.to_dict()}
         emit("match_submitted", data, broadcast=True, room=game.info.game_id, include_self=True)
     except (GameStateError, PlayerError, InputError) as e:
-        send_error(str(e))
+        send_error(e)
         return
 
     def round_started():
